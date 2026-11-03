@@ -1,0 +1,110 @@
+{
+ "id": "雾环",
+ "name": "雾环",
+ "en": "",
+ "custom": true,
+ "seed": 2932744782,
+ "tagline": "一个四季分明的破碎群岛世界,海洋占了八成,洋流湍急,极地大陆冰封,名叫雾环",
+ "dayHours": 24,
+ "rotFactor": 1,
+ "tiltDeg": 27,
+ "greenhouse": -6,
+ "tEq": 20,
+ "tPole": -42,
+ "moon": "一颗普通卫星",
+ "plates": 15,
+ "continentalPlates": 7,
+ "landTarget": 0.15,
+ "hotspots": 9,
+ "continentBias": "poles",
+ "forceRift": false,
+ "forceCollision": false,
+ "moistureDecayDeg": 11,
+ "rivers": {
+  "dischargeThreshold": 63000000,
+  "maxCount": 117
+ },
+ "citiesTarget": 11,
+ "culture": {
+  "civName": "新拓文化圈",
+  "civIntro": "这个世界的城邦刚刚学会仰望星空。河谷与海岸孕育了第一批政权,商队与季风决定着它们的兴衰。",
+  "syllA": [
+   "诺",
+   "岚",
+   "汐",
+   "岩",
+   "绯",
+   "墨",
+   "渊",
+   "辉",
+   "澜",
+   "珀",
+   "霜",
+   "炎"
+  ],
+  "syllB": [
+   "塔",
+   "原",
+   "港",
+   "城",
+   "谷",
+   "环",
+   "穹",
+   "洲",
+   "屿",
+   "墟",
+   "台",
+   "原"
+  ],
+  "govt": [
+   "执政官议会",
+   "星图祭司团",
+   "拓荒联席会",
+   "商港伯国",
+   "元老院",
+   "环议制"
+  ],
+  "goods": [
+   "谷物",
+   "金属",
+   "织物",
+   "香料",
+   "晶石",
+   "海产",
+   "木材",
+   "陶器"
+  ],
+  "taboos": [
+   "远洋夜航",
+   "弑信使",
+   "掘祖山"
+  ],
+  "suffixPools": {
+   "river": [
+    "河",
+    "江",
+    "水"
+   ],
+   "mount": [
+    "山",
+    "岭",
+    "峰"
+   ],
+   "desert": [
+    "漠",
+    "沙海",
+    "碛"
+   ],
+   "sea": [
+    "洋",
+    "海"
+   ],
+   "basin": [
+    "原",
+    "盆"
+   ]
+  }
+ },
+ "expect": [],
+ "description": "一个四季分明的破碎群岛世界,海洋占了八成,洋流湍急,极地大陆冰封,名叫雾环"
+}

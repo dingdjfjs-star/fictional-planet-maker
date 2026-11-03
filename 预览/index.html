@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>虚构行星工坊 · Cesium 三维预览</title>
+<script>window.CESIUM_BASE_URL = './vendor/cesium/';</script>
+<script src="/vendor/cesium/Cesium.js"></script>
+<style>
+  @import url('./vendor/cesium/Widgets/widgets.css');
+  html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; z-index: 10; width: 248px;
+    background: rgba(12, 18, 28, 0.88); color: #dce8f2; border: 1px solid #2a3a4e;
+    border-radius: 10px; padding: 12px 14px; font: 13px/1.55 "Microsoft YaHei", sans-serif;
+    user-select: none; backdrop-filter: blur(4px);
+  }
+  #panel h1 { font-size: 16px; margin: 0 0 2px; color: #8fd0ff; letter-spacing: 1px; }
+  #panel .sub { font-size: 11px; color: #7e94ab; margin-bottom: 8px; }
+  #panel select, #panel button {
+    width: 100%; box-sizing: border-box; background: #16222f; color: #dce8f2;
+    border: 1px solid #33506b; border-radius: 6px; padding: 5px 8px; font: inherit; cursor: pointer;
+  }
+  #panel .sec { margin-top: 10px; border-top: 1px dashed #2a3a4e; padding-top: 8px; }
+  #panel .sec .t { font-size: 12px; color: #8fd0ff; margin-bottom: 5px; }
+  .modes label, .layers label {
+    display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0;
+    background: #16222f; border: 1px solid #33506b; border-radius: 6px;
+    padding: 2px 8px; cursor: pointer; font-size: 12px;
+  }
+  .layers label { display: flex; width: calc(50% - 8px); box-sizing: border-box; margin: 2px 0; }
+  .layers { display: flex; flex-wrap: wrap; justify-content: space-between; }
+  .modes input, .layers input { accent-color: #3aa0ff; margin: 0; }
+  .modes label.on, .layers label.on { border-color: #3aa0ff; color: #bfe3ff; }
+  #info {
+    position: absolute; left: 12px; bottom: 12px; z-index: 10; width: 330px; max-height: 42vh; overflow: auto;
+    background: rgba(12, 18, 28, 0.9); color: #dce8f2; border: 1px solid #2a3a4e;
+    border-radius: 10px; padding: 10px 14px; font: 12.5px/1.65 "Microsoft YaHei", sans-serif; display: none;
+  }
+  #info h3 { margin: 0 0 4px; color: #ffd479; font-size: 15px; }
+  #info .meta { color: #8aa4bd; margin-bottom: 6px; }
+  #info .close { float: right; cursor: pointer; color: #7e94ab; }
+  #hud {
+    position: absolute; top: 12px; right: 12px; z-index: 10; display: none;
+    background: rgba(0,0,0,0.65); color: #9fe0a8; border-radius: 8px; padding: 8px 12px;
+    font: 12px/1.6 Consolas, monospace; white-space: pre; border: 1px solid #2a4a3a;
+  }
+  #loading {
+    position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+    background: rgba(2, 6, 12, 0.82); color: #8fd0ff; font: 16px "Microsoft YaHei", sans-serif;
+    letter-spacing: 2px; transition: opacity 0.4s;
+  }
+  #legend {
+    position: absolute; right: 12px; bottom: 12px; z-index: 10; width: 210px;
+    background: rgba(12,18,28,0.88); color: #dce8f2; border: 1px solid #2a3a4e; border-radius: 10px;
+    padding: 8px 12px; font: 11.5px/1.7 "Microsoft YaHei", sans-serif;
+  }
+  #legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  #legend .t { color: #8fd0ff; font-size: 12px; margin-bottom: 2px; }
+  /* ---- 行星工坊 ---- */
+  #workshop { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(2, 6, 12, 0.72); }
+  #wsBox { width: 470px; max-height: 92vh; overflow: auto; background: #0c121c; border: 1px solid #2a3a4e; border-radius: 12px; padding: 14px 18px; color: #dce8f2; font: 13px/1.6 "Microsoft YaHei", sans-serif; }
+  #wsBox h2 { margin: 0 0 4px; font-size: 16px; color: #8fd0ff; }
+  #wsBox .hint { font-size: 11.5px; color: #7e94ab; margin-bottom: 8px; }
+  #wsDesc { width: 100%; box-sizing: border-box; height: 64px; background: #16222f; color: #dce8f2; border: 1px solid #33506b; border-radius: 8px; padding: 8px; font: inherit; resize: vertical; }
+  #wsSummary { background: #101a26; border: 1px dashed #33506b; border-radius: 8px; padding: 8px 10px; font-size: 12px; white-space: pre-wrap; display: none; margin: 8px 0; color: #bfe3ff; }
+  #wsForm { display: none; margin-top: 8px; }
+  #wsForm .grid { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  #wsForm label { display: flex; flex-direction: column; font-size: 11.5px; color: #8aa4bd; width: calc(33% - 8px); }
+  #wsForm label.wide { width: calc(66% - 8px); }
+  #wsForm input, #wsForm select { background: #16222f; color: #dce8f2; border: 1px solid #33506b; border-radius: 6px; padding: 4px 6px; font: inherit; }
+  #wsForm .chk { flex-direction: row; align-items: center; gap: 5px; width: calc(50% - 8px); }
+  #wsBox .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  #wsBox .btnrow button { flex: 1; background: #1b3250; color: #bfe3ff; border: 1px solid #3a6ea8; border-radius: 8px; padding: 7px 0; font: inherit; cursor: pointer; }
+  #wsBox .btnrow button.primary { background: #2563a8; color: #fff; }
+  #wsBox .btnrow button:disabled { opacity: 0.5; cursor: wait; }
+  #wsStatus { margin-top: 8px; color: #ffd479; font-size: 12.5px; min-height: 18px; }
+  #wsCustoms { margin-top: 10px; border-top: 1px dashed #2a3a4e; padding-top: 8px; }
+  #wsCustoms .row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; }
+  #wsCustoms .row button { background: #3a1b22; color: #ff9a9a; border: 1px solid #6b2a35; border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 11.5px; }
+  #openWs { margin-top: 8px; width: 100%; background: #1b3250; color: #bfe3ff; border: 1px solid #3a6ea8; border-radius: 8px; padding: 6px 0; font: inherit; cursor: pointer; }
+  .visgrid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .visgrid label { display: flex; align-items: center; gap: 4px; font-size: 12px; width: calc(50% - 8px); }
+  .visgrid label.wide { width: 100%; }
+  .visgrid input[type=range] { width: 100%; accent-color: #3aa0ff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .chips button { background: #16222f; color: #bfe3ff; border: 1px solid #33506b; border-radius: 14px; padding: 2px 10px; font-size: 11.5px; cursor: pointer; }
+  #wsCode { width: 100%; box-sizing: border-box; height: 52px; background: #101a26; color: #9fe0a8; border: 1px solid #33506b; border-radius: 8px; padding: 6px; font: 11px/1.4 Consolas, monospace; resize: vertical; }
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div id="panel">
+  <h1>虚构行星工坊</h1>
+  <div class="sub">板块 → 地形 → 大气 → 洋流 → 气候 → 城邦</div>
+  <select id="planetSel"></select>
+  <button id="openWs">🛠 行星工坊 · 用一句话造一颗星</button>
+  <div id="tagline" class="sub" style="margin-top:6px"></div>
+  <div class="sec">
+    <div class="t">贴图模式</div>
+    <div class="modes" id="modes"></div>
+  </div>
+    <div class="sec">
+      <div class="t">图层</div>
+      <div class="layers" id="layers"></div>
+    </div>
+    <div class="sec">
+      <div class="t">视觉</div>
+      <div class="visgrid">
+        <label><input type="checkbox" id="visClouds" checked>云层</label>
+        <label><input type="checkbox" id="visDayNight">昼夜自转</label>
+        <label><input type="checkbox" id="visTerrain">3D 地形(切换时约卡1秒)</label>
+        <label><input type="checkbox" id="visMoons" checked>卫星</label>
+        <label class="wide">地形起伏 ×<span id="exagVal">4</span><input id="visExag" type="range" min="1" max="15" step="1" value="4"></label>
+      </div>
+    </div>
+</div>
+<div id="info"><span class="close" onclick="this.parentNode.style.display='none'">✕</span><div id="infoBody"></div></div>
+
+<div id="workshop">
+  <div id="wsBox">
+    <h2>🛠 行星工坊</h2>
+    <div class="hint">用一句中文描述你想要的行星 → 解析成参数 → 生成并保存。之后可以改参数反复重生成(同一名字=同一片大陆骨架)。</div>
+    <textarea id="wsDesc" placeholder="例: 一颗自转很慢的沙漠星球,一整块超级大陆被大裂谷劈开,四季几乎不存在,昼夜60小时,名叫烬阳"></textarea>
+    <div class="chips" id="wsPresets"></div>
+    <div id="wsSummary"></div>
+    <div id="wsForm">
+      <div class="grid">
+        <label class="wide">名字<input id="wsName" maxlength="6"></label>
+        <label>昼夜(小时)<input id="wsDay" type="number" min="2" max="480"></label>
+        <label>倾角(度)<input id="wsTilt" type="number" min="0" max="60"></label>
+        <label>陆地占比(%)<input id="wsLand" type="number" min="5" max="80"></label>
+        <label>板块数<input id="wsPlates" type="number" min="4" max="18"></label>
+        <label>陆壳板块<input id="wsCont" type="number" min="1" max="10"></label>
+        <label>热点火山<input id="wsHot" type="number" min="0" max="30"></label>
+        <label class="wide">大陆偏置<select id="wsBias">
+          <option value="none">无(随机分布)</option>
+          <option value="equator">赤道超级大陆</option>
+          <option value="poles">高纬大陆</option>
+        </select></label>
+        <label class="chk"><input id="wsRift" type="checkbox">强制中央裂谷</label>
+        <label class="chk"><input id="wsColl" type="checkbox">强制碰撞造山</label>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="wsParse">① 解析描述</button>
+      <button id="wsDice" title="换个随机种子(地形骨架会变)">🎲 换骨架</button>
+      <button id="wsGenerate" class="primary">② 生成行星</button>
+    </div>
+    <div id="wsStatus"></div>
+    <div class="btnrow">
+      <button id="wsCodeBtn">📋 生成星籍码</button>
+      <button id="wsImport">📥 导入星籍码</button>
+    </div>
+    <textarea id="wsCode" placeholder="星籍码会出现在这里; 也可以粘贴别人的星籍码后点导入"></textarea>
+    <div id="wsCustoms"></div>
+    <div class="btnrow"><button id="wsClose">关闭工坊</button></div>
+  </div>
+</div>
+
+<div id="hud"></div>
+<div id="legend"></div>
+<div id="loading">正在展开星球 …</div>
+
+<script>
+'use strict';
+// ============ 自查错误收集(遵循 cesium-twin-builder 的 ?debug=1 HUD 约定) ============
+window.__errs = [];
+window.addEventListener('error', e => window.__errs.push(String(e.message || e)));
+window.addEventListener('unhandledrejection', e => window.__errs.push('promise: ' + (e.reason && e.reason.message || e.reason)));
+
+const DEBUG = /[?&]debug=1/.test(location.search);
+const hud = document.getElementById('hud');
+if (DEBUG) hud.style.display = 'block';
+// FPS 统计(仅测量, 不驱动任何渲染逻辑)
+let _frames = 0, _fps = 0, _last = performance.now();
+(function loop(t) {
+  _frames++;
+  if (t - _last >= 800) { _fps = Math.round(_frames * 1000 / (t - _last)); _frames = 0; _last = t; }
+  requestAnimationFrame(loop);
+})(performance.now());
+setInterval(() => {
+  if (!DEBUG || !viewer) return;
+  let n = 0;
+  for (let i = 0; i < viewer.dataSources.length; i++) {
+    try { n += viewer.dataSources.get(i).entities.values.length; } catch (e) {}
+  }
+  hud.textContent = `FPS ${_fps}\n实体 ${n}\nerrs=[${window.__errs.slice(0, 4).join(' | ')}]`;
+}, 500);
+
+// ============ 星球与图层配置 ============
+const PLANETS = [
+  { id: 'feilan', folder: '翡岚', name: '翡岚' },
+  { id: 'jinrang', folder: '烬壤', name: '烬壤' },
+  { id: 'shuangyu', folder: '霜屿', name: '霜屿' }
+];
+const LAYERS = [
+  { id: 'plates',   file: '01_板块与边界.geojson', label: '板块边界', on: true },
+  { id: 'mountains',file: '02_山脉与火山.geojson', label: '山脉火山', on: true },
+  { id: 'rivers',   file: '03_河流.geojson',       label: '河流',     on: true },
+  { id: 'basins',   file: '04_流域.geojson',       label: '流域',     on: false },
+  { id: 'lakes',    file: '05_湖泊.geojson',       label: '湖泊',     on: true },
+  { id: 'currents',     file: '06_洋流.geojson', label: '主要洋流',   on: true, filter: t => t !== '环流段' },
+  { id: 'currentsFlow', file: '06_洋流.geojson', label: '环流流线',   on: false, filter: t => t === '环流段' },
+  { id: 'climate',  file: '07_气候分区.geojson',   label: '气候分区', on: true },
+  { id: 'monsoon',  file: '08_季风区.geojson',     label: '季风区',   on: true },
+  { id: 'cities',   file: '09_城邦.geojson',       label: '城邦',     on: true },
+  { id: 'trade',    file: '10_商路.geojson',       label: '商路',     on: true }
+];
+const MODES = [
+  { id: 'terrain', label: '地形' },
+  { id: 'climate', label: '气候' },
+  { id: 'tectonic', label: '构造' }
+];
+const CLIM_COLORS = {
+  '冰原': '#f0f4f8', '苔原': '#c4d0c8', '高山山地': '#b09e90', '亚寒带针叶林': '#789e7a',
+  '热带雨林': '#2c7a44', '热带季风林': '#46965a', '热带草原': '#a8c458', '干旱沙漠': '#d6bc80',
+  '半干旱草原': '#ceba74', '地中海气候': '#c6b26a', '副热带湿润': '#80b070', '温带海洋性': '#60aa78',
+  '温带大陆性': '#82a06c', '温带季风': '#6eaa6e'
+};
+const BASIN_COLORS = ['#7ec8e3', '#a8e6a1', '#f4d06f', '#f4a6c0', '#c0a6f4', '#8fd0ff', '#ffe08a', '#9fe0c0'];
+
+let viewer, currentPlanet = null, currentMode = 'terrain'; // currentPlanet 存 PLANETS 条目
+let currentPj = null;
+let exagg = 4;                       // 地形夸张倍数
+let elevGrid = null;                 // Int16Array 高度场
+let terrainProv = null, cloudLayer = null, moonPrims = null, moonCfg = null;
+let cityPoints = null, cityMeta = [];
+const linePosCache = new Map();      // 折线实体 id → {pts:[lon,lat][], maxE:最高地形}
+let baseImageryLayer = null;
+const layerDS = {};   // layerId -> dataSource
+let cityDataByName = {};
+let pendingSeq = 0;
+
+// ============ 初始化 Cesium ============
+async function initCesium() {
+  viewer = new Cesium.Viewer('cesiumContainer', {
+    baseLayer: false,                 // 不用默认影像, 贴我们生成的星球纹理
+    baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
+    navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false,
+    infoBox: false, selectionIndicator: false,
+    creditContainer: document.createElement('div')
+  });
+  viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0a2036');
+  // 渲染错误 → 记录到 HUD + 自动恢复渲染循环(软渲染下偶发异步几何竞态, 单帧失败不应永久停摆)
+  viewer.scene.renderError.addEventListener((s, e) => {
+    const m = e && e.message ? e.message : String(e);
+    const st = e && e.stack ? String(e.stack).split('\n').slice(0, 6).join(' << ') : '';
+    window.__errs.push('renderError: ' + m + ' @ ' + st);
+    if (window.__errs.length > 12) window.__errs.splice(0, window.__errs.length - 12);
+    setTimeout(() => {
+      try {
+        const panelBtn = document.querySelector('.cesium-widget-error-panel button');
+        if (panelBtn) panelBtn.click();                 // 自动关闭错误面板
+        viewer.useDefaultRenderLoop = false;            // 重启渲染循环
+        viewer.useDefaultRenderLoop = true;
+      } catch (e2) {}
+    }, 120);
+  });
+  // 避坑: 软件 WebGL/部分驱动下地面大气着色器会导致球面整体不渲染(实体可见但 globe 消失),
+  // 默认关闭; 真实 GPU 环境可用 ?atmo=1 开启
+  const wantAtmo = /[?&]atmo=1/.test(location.search);
+  viewer.scene.globe.showGroundAtmosphere = wantAtmo;
+  viewer.scene.skyAtmosphere.show = wantAtmo;
+  viewer.scene.moon.show = false;
+  viewer.scene.sun.show = true;
+  // 初始相机: 静态 setView(安全写法, 不逐帧 rotate)
+  viewer.camera.setView({
+    destination: Cesium.Cartesian3.fromDegrees(110, 18, 24500000)
+  });
+  // 点击城邦 → 文明背景卡(PointPrimitive 与实体两种拾取结果都兼容)
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction(m => {
+    const picked = viewer.scene.pick(m.position);
+    const cd = Cesium.defined(picked) && picked.id && picked.id.cityData ? picked.id.cityData
+      : (Cesium.defined(picked) && picked.id && picked.id.background ? picked.id : null);
+    if (cd) showCity(cd);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+  // 视觉包逐帧驱动(卫星公转/夜灯) —— 仅改属性, 不重建几何
+  viewer.clock.onTick.addEventListener(onVisTick);
+}
+
+// ============ 贴图 ============
+async function setTexture(folder, mode) {
+  try {
+    const prov = await Cesium.SingleTileImageryProvider.fromUrl(`数据/${encodeURIComponent(folder)}/${mode}.png`);
+    if (baseImageryLayer) viewer.imageryLayers.remove(baseImageryLayer);
+    baseImageryLayer = viewer.imageryLayers.addImageryProvider(prov);
+    baseImageryLayer.layerIndex = -1; // 垫底
+    updateLegend(mode);
+  } catch (e) { window.__errs.push('texture: ' + e.message); }
+}
+
+// ============ 图层加载与样式 ============
+function color(hex, alpha) { return Cesium.Color.fromCssColorString(hex).withAlpha(alpha); }
+
+async function loadLayer(layerCfg, folder, seq) {
+  const ds = await Cesium.GeoJsonDataSource.load(`数据/${encodeURIComponent(folder)}/${layerCfg.file}`, { clampToGround: false });
+  if (seq !== pendingSeq) return; // 已切换星球, 丢弃
+  // 图层过滤器: 同一文件可按属性拆成多个显示层(如 主要洋流/环流流线)
+  if (layerCfg.filter) {
+    for (const e of ds.entities.values) {
+      const t = (e.properties && e.properties.类型 && e.properties.类型.getValue()) || '';
+      if (!layerCfg.filter(t)) e.show = false;
+    }
+  }
+  for (const e of ds.entities.values) {
+    const p = e.properties || {};
+    if (e.polygon) {
+      e.polygon.height = 2000;            // 静态高度, 避免与椭球面共面闪烁
+      // 轮廓一律关闭: 轮廓几何走 RHUMB 细分, 极区/缝边顶点会触发 new Array(NaN) 崩溃;
+      // 边界视觉由独立折线图层(01 板块边界等)承担
+      e.polygon.outline = false;
+    }
+    if (layerCfg.id === 'climate') {
+      const nm = p.名称 && p.名称.getValue ? p.名称.getValue() : p.名称;
+      e.polygon.material = color(CLIM_COLORS[nm] || '#9ab0a0', 0.34);
+    } else if (layerCfg.id === 'plates') {
+      if (e.polygon) {
+        e.polygon.material = color('#5a7a9a', 0.08);
+        e.polygon.outline = false;
+      }
+      if (e.polyline) {
+        const bt = p.边界类型 && p.边界类型.getValue ? p.边界类型.getValue() : p.边界类型 || '';
+        if (/汇聚/.test(bt)) e.polyline.material = new Cesium.PolylineGlowMaterialProperty({ color: color('#ff5040', 0.95), glowPower: 0.25 });
+        else if (/离散/.test(bt)) e.polyline.material = new Cesium.PolylineGlowMaterialProperty({ color: color('#40dcff', 0.95), glowPower: 0.25 });
+        else e.polyline.material = new Cesium.PolylineDashMaterialProperty({ color: color('#ffdc40', 0.9), dashLength: 14 });
+        e.polyline.width = 3.5;
+      }
+    } else if (layerCfg.id === 'rivers') {
+      const dis = (p.流量指数 && p.流量指数.getValue) ? p.流量指数.getValue() : 0;
+      e.polyline.material = color('#4a90d9', 0.9);
+      e.polyline.width = 1.5 + Math.min(4.5, Math.sqrt(Math.max(0, dis)) / 220);
+    } else if (layerCfg.id === 'currents' || layerCfg.id === 'currentsFlow') {
+      const kind = p.类型 && p.类型.getValue ? p.类型.getValue() : p.类型 || '';
+      const prop = p.性质 && p.性质.getValue ? p.性质.getValue() : p.性质 || '';
+      if (kind === '环流段') {
+        // 背景流线: 细、淡、无箭头(默认关闭, 供研究环流形态时打开)
+        e.polyline.material = color('#a8cfe6', 0.38);
+        e.polyline.width = 2;
+      } else {
+        let c = '#b8d8e8';
+        if (kind === '西边界流' || /暖/.test(prop)) c = '#ffb060';
+        else if (kind === '东边界流' || kind === '环极流' || /寒/.test(prop)) c = '#78c8ff';
+        e.polyline.material = new Cesium.PolylineArrowMaterialProperty(color(c, 0.92));
+        e.polyline.width = 11;
+      }
+    } else if (layerCfg.id === 'basins') {
+      const nm = (p.名称 && p.名称.getValue) ? p.名称.getValue() : '';
+      let h = 0; for (const ch of nm) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      e.polygon.material = color(BASIN_COLORS[h % BASIN_COLORS.length], 0.20);
+    } else if (layerCfg.id === 'lakes') {
+      if (e.polygon) e.polygon.material = color('#5aa0e8', 0.85);
+    } else if (layerCfg.id === 'monsoon') {
+      e.polygon.material = color('#ff9a3c', 0.26);
+    } else if (layerCfg.id === 'mountains') {
+      if (e.polygon) e.polygon.material = color('#e8d8c0', 0.42);
+      if (e.point) { /* 无 */ }
+    }
+    if (e.point) {
+      e.point.pixelSize = 9;
+      e.point.color = color('#ffd479', 0.95);
+      e.point.outlineColor = color('#7a5200', 1);
+      e.point.outlineWidth = 2;
+    }
+    if (e.polyline && layerCfg.id === 'trade') {
+      e.polyline.material = new Cesium.PolylineDashMaterialProperty({ color: color('#ffffff', 0.55), dashLength: 16 });
+      e.polyline.width = 2;
+    }
+    // 折线统一: NONE 弧型(直线段, 数据已预细分≤1.5°) —— 高度由 applyLineHeights 随地形起伏统一管理
+    // 规避 GeoJsonDataSource 默认 RHUMB 细分在特定段上的 subdivideRhumbLine 崩溃
+    if (e.polyline) {
+      e.polyline.arcType = Cesium.ArcType.NONE;
+      if (!linePosCache.has(e.id)) {
+        const raw = e.polyline.positions.getValue(viewer.clock.currentTime);
+        const pts = [];
+        let maxE = 0;
+        for (const c of raw) {
+          const carto = Cesium.Cartographic.fromCartesian(c);
+          const lo = Cesium.Math.toDegrees(carto.longitude), la = Cesium.Math.toDegrees(carto.latitude);
+          pts.push([lo, la]);
+          const el = Math.max(0, sampleElev(lo, la));
+          if (el > maxE) maxE = el;
+        }
+        linePosCache.set(e.id, { pts, maxE });
+      }
+    }
+  }
+  ds.show = layerCfg.on;
+  viewer.dataSources.add(ds);
+  layerDS[layerCfg.id] = ds;
+}
+
+// 城邦: 点用 PointPrimitiveCollection(夜灯逐帧调色), 标签用实体; 附文明背景数据
+async function loadCities(folder, seq) {
+  const pj = await fetchJSON(`数据/${encodeURIComponent(folder)}/planet.json`);
+  const ds = new Cesium.CustomDataSource('cities');
+  if (seq !== pendingSeq) return;
+  cityDataByName = {};
+  cityMeta = [];
+  cityPoints = new Cesium.PointPrimitiveCollection();
+  const ex = exagg;
+  for (const c of pj.cities) {
+    cityDataByName[c.name] = c;
+    const cart = Cesium.Cartesian3.fromDegrees(c.lon, c.lat, cityHeight(c.elevM || 0));
+    const pp = cityPoints.add({
+      position: cart, pixelSize: 9,
+      color: color('#ffd479', 0.95),
+      outlineColor: color('#5a3c00', 1), outlineWidth: 2,
+      disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      id: c
+    });
+    cityMeta.push({ pp, cart, norm: Cesium.Cartesian3.normalize(cart, new Cesium.Cartesian3()), elev: c.elevM || 0, lon: c.lon, lat: c.lat, label: null, name: c.name, pop: c.popWan });
+    const lbl = ds.entities.add({
+      position: cart,
+      label: {
+        text: c.name + ' · ' + c.popWan + '万',
+        font: '12px "Microsoft YaHei", sans-serif',
+        fillColor: Cesium.Color.fromCssColorString('#ffe9b8'),
+        outlineColor: Cesium.Color.fromCssColorString('#000000'),
+        outlineWidth: 2.5,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(0, -16),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 2.4e7)
+      }
+    });
+    cityMeta[cityMeta.length - 1].label = lbl;
+  }
+  viewer.scene.primitives.add(cityPoints);
+  ds.show = (LAYERS.find(l => l.id === 'cities') || {}).on !== false;
+  viewer.dataSources.add(ds);
+  layerDS.cities = ds;
+  applyCityHeights(ex);
+}
+function cityHeight(elevM) { return Math.max(0, elevM) * exagg + 1500; }
+function applyCityHeights(ex) {
+  const terrainOn = viewer.terrainProvider === terrainProv;
+  for (const m of cityMeta) {
+    const cart = Cesium.Cartesian3.fromDegrees(m.lon, m.lat, terrainOn ? cityHeight(m.elev) : 1500);
+    m.cart = cart;
+    m.pp.position = cart;
+    if (m.label) m.label.position = cart;
+  }
+}
+
+function fetchJSON(url) {
+  return fetch(url).then(r => { if (!r.ok) throw new Error(r.status + ' ' + url); return r.json(); });
+}
+
+// ============ 行星切换 ============
+async function loadPlanet(cfg) {
+  const seq = ++pendingSeq;
+  const loading = document.getElementById('loading');
+  loading.style.opacity = '1'; loading.style.display = 'flex';
+  try {
+    // 清空旧数据源与旧贴图
+    for (const k of Object.keys(layerDS)) {
+      if (layerDS[k]) { viewer.dataSources.remove(layerDS[k], true); delete layerDS[k]; }
+    }
+    if (baseImageryLayer) { viewer.imageryLayers.remove(baseImageryLayer); baseImageryLayer = null; }
+    const pj = await fetchJSON(`数据/${encodeURIComponent(cfg.folder)}/planet.json`);
+    if (seq !== pendingSeq) return;
+    currentPj = pj;
+    document.getElementById('tagline').textContent = pj.tagline;
+    buildLegendClimate(pj);
+    linePosCache.clear();
+    if (pj.elevB64) { elevGrid = decodeElev(pj); terrainProv = makeTerrainProvider(); }
+    await setClouds(g('visClouds').checked, pj, seq);
+    setMoons(g('visMoons').checked, pj);
+    await setTexture(cfg.folder, currentMode);
+    if (seq !== pendingSeq) return;
+    for (const lc of LAYERS) {
+      if (lc.id === 'cities') await loadCities(cfg.folder, seq);
+      else await loadLayer(lc, cfg.folder, seq);
+      if (seq !== pendingSeq) return;
+    }
+    setTerrain(g('visTerrain').checked); // 应用3D地形(默认关)+折线高度
+    applyCityHeights(exagg);
+    // 一次性 flyTo 入场(安全)
+    viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(pj.stats && pj.stats.focusLon || 110, pj.stats && pj.stats.focusLat || 15, 22000000), duration: 2.2 });
+  } catch (e) {
+    window.__errs.push('loadPlanet: ' + (e.message || e));
+  } finally {
+    if (seq === pendingSeq) { loading.style.opacity = '0'; setTimeout(() => loading.style.display = 'none', 420); }
+  }
+}
+function planetId(idOrName) { return idOrName; }
+
+// ============ 行星工坊 ============
+let customs = [];
+async function refreshPlanetList() {
+  try { customs = await fetchJSON('api/customs'); } catch (e) { customs = []; }
+  const sel = document.getElementById('planetSel');
+  const cur = sel.value;
+  sel.innerHTML = '';
+  for (const p of PLANETS) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = `${p.name} (${p.id})`;
+    sel.appendChild(o);
+  }
+  for (const c of customs) {
+    const o = document.createElement('option');
+    o.value = c.name; o.textContent = `${c.name} · 自定义`;
+    sel.appendChild(o);
+  }
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  renderCustomsList();
+}
+function resolvePlanetCfg(value) {
+  return PLANETS.find(x => x.id === value) || (() => {
+    const c = customs.find(x => x.name === value);
+    return c ? { id: c.name, folder: c.name, name: c.name, tagline: c.tagline, custom: true } : null;
+  })();
+}
+function renderCustomsList() {
+  const el = document.getElementById('wsCustoms');
+  if (!el) return;
+  el.innerHTML = '<div class="hint" style="margin-bottom:4px">已保存的自定义行星</div>';
+  if (!customs.length) { el.innerHTML += '<div class="hint">暂无 —— 生成一颗后会保存在这里</div>'; return; }
+  for (const c of customs) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span>${c.name}</span>`;
+    const btn = document.createElement('button');
+    btn.textContent = '删除';
+    btn.onclick = async () => {
+      await fetch('api/customs/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: c.name }) });
+      await refreshPlanetList();
+      // 若正在显示被删行星, 回到默认
+      if (currentPlanet && currentPlanet.name === c.name && currentPlanet.custom) {
+        const p0 = PLANETS[0];
+        currentPlanet = p0; document.getElementById('planetSel').value = p0.id;
+        loadPlanet(p0);
+      }
+    };
+    row.appendChild(btn);
+    el.appendChild(row);
+  }
+}
+
+let wsParsed = null;
+const gval = (id) => document.getElementById(id).value;
+async function wsParse() {
+  const desc = document.getElementById('wsDesc').value.trim();
+  if (!desc) { document.getElementById('wsStatus').textContent = '先写一句行星描述'; return; }
+  const resp = await fetch('api/parse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ desc }) });
+  const r = await resp.json();
+  wsParsed = r.params;
+  document.getElementById('wsSummary').textContent = r.summary;
+  document.getElementById('wsSummary').style.display = 'block';
+  document.getElementById('wsForm').style.display = 'block';
+  g('wsName').value = wsParsed.name;
+  g('wsDay').value = wsParsed.dayHours;
+  g('wsTilt').value = wsParsed.tiltDeg;
+  g('wsLand').value = Math.round(wsParsed.landTarget * 100);
+  g('wsPlates').value = wsParsed.plates;
+  g('wsCont').value = wsParsed.continentalPlates;
+  g('wsHot').value = wsParsed.hotspots;
+  g('wsBias').value = wsParsed.continentBias;
+  g('wsRift').checked = wsParsed.forceRift;
+  g('wsColl').checked = wsParsed.forceCollision;
+  document.getElementById('wsStatus').textContent = '解析完成, 可直接微调上面参数后生成';
+}
+function g(id) { return document.getElementById(id); }
+function wsCollect() {
+  if (!wsParsed) return null;
+  const p = JSON.parse(JSON.stringify(wsParsed));
+  p.name = (g('wsName').value || p.name).slice(0, 6);
+  p.dayHours = +g('wsDay').value;
+  p.tiltDeg = +g('wsTilt').value;
+  p.landTarget = (+g('wsLand').value || 30) / 100;
+  p.plates = +g('wsPlates').value;
+  p.continentalPlates = +g('wsCont').value;
+  p.hotspots = +g('wsHot').value;
+  p.continentBias = g('wsBias').value;
+  p.forceRift = g('wsRift').checked;
+  p.forceCollision = g('wsColl').checked;
+  return p;
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+async function wsGenerate() {
+  const p = wsCollect();
+  if (!p) { document.getElementById('wsStatus').textContent = '请先点「① 解析描述」'; return; }
+  const genBtn = g('wsGenerate'), parseBtn = g('wsParse');
+  genBtn.disabled = parseBtn.disabled = true;
+  const status = g('wsStatus');
+  try {
+    const r0 = await fetch('api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ params: p }) }).then(x => x.json());
+    if (r0.error) throw new Error(r0.error);
+    for (;;) {
+      await sleep(700);
+      const j = await fetch('api/job').then(x => x.json());
+      status.textContent = j.running ? `⏳ 正在生成「${j.name}」… 已 ${((Date.now() - j.startedAt) / 1000).toFixed(0)} 秒(约 5-8 秒)` : '';
+      if (!j.running) { if (j.error) throw new Error(j.error); break; }
+    }
+    await refreshPlanetList();
+    const cfg = resolvePlanetCfg(p.name);
+    currentPlanet = cfg;
+    g('planetSel').value = cfg.id;
+    await loadPlanet(cfg);
+    status.textContent = `✅ 「${p.name}」已生成并保存, 已加载到预览`;
+  } catch (e) {
+    status.textContent = '生成失败: ' + (e.message || e);
+  } finally {
+    genBtn.disabled = parseBtn.disabled = false;
+  }
+}
+let apiAvailable = null;
+async function openWorkshop() {
+  g('workshop').style.display = 'flex';
+  // 探测后端 API: 静态托管(GitHub Pages)下无 Node 服务, 造星功能降级为提示
+  try {
+    const r = await fetch('api/job');
+    apiAvailable = r.ok;
+  } catch (e) { apiAvailable = false; }
+  const offline = apiAvailable === false;
+  g('wsParse').disabled = g('wsGenerate').disabled = g('wsDice').disabled = offline;
+  if (offline) {
+    g('wsStatus').textContent = 'ℹ 静态托管版: 观星功能完整; 在线造星请下载项目到本地运行(node 预览\\server.js)';
+    g('wsSummary').textContent = '';
+    g('wsSummary').style.display = 'none';
+  }
+  refreshPlanetList();
+}
+function closeWorkshop() { g('workshop').style.display = 'none'; }
+
+// ============ 视觉包: 3D地形 / 云层 / 昼夜夜灯 / 卫星 ============
+function decodeElev(pj) {
+  const buf = Uint8Array.from(atob(pj.elevB64), c => c.charCodeAt(0));
+  return new Int16Array(buf.buffer, buf.byteOffset, pj.gridW * pj.gridH);
+}
+function sampleElev(lon, lat) {
+  if (!elevGrid) return 0;
+  const GW = 720, GH = 360;
+  let fx = ((lon + 180) / 360) * GW - 0.5;
+  let fy = ((90 - lat) / 180) * GH - 0.5;
+  fx = Math.max(0, Math.min(GW - 1.001, fx));
+  fy = Math.max(0, Math.min(GH - 1.001, fy));
+  const x0 = Math.floor(fx), y0 = Math.floor(fy);
+  const x1 = Math.min(GW - 1, x0 + 1), y1 = Math.min(GH - 1, y0 + 1);
+  const tx = fx - x0, ty = fy - y0;
+  return elevGrid[y0 * GW + x0] * (1 - tx) * (1 - ty) + elevGrid[y0 * GW + x1] * tx * (1 - ty)
+       + elevGrid[y1 * GW + x0] * (1 - tx) * ty + elevGrid[y1 * GW + x1] * tx * ty;
+}
+function makeTerrainProvider() {
+  const tiling = new Cesium.GeographicTilingScheme();
+  const HM = 33, maxLevel = 5;
+  const levelZeroMaxErr = Cesium.TerrainProvider.getEstimatedLevelZeroGeometricErrorForAHeightmap(Cesium.Ellipsoid.WGS84.maximumRadius, HM, tiling.getNumberOfXTilesAtLevel(0));
+  return {
+    tilingScheme: tiling,
+    ready: true,
+    readyPromise: Promise.resolve(true),
+    hasWaterMask: false,
+    hasVertexNormals: false,
+    requestVertexNormals: false,
+    requestWaterMask: false,
+    credit: new Cesium.Credit('虚构行星地形'),
+    errorEvent: new Cesium.Event(),
+    availability: null,
+    getLevelMaximumGeometricError(level) { return levelZeroMaxErr / (1 << level); },
+    getTileDataAvailable() { return true; },
+    requestTileGeometry(x, y, level) {
+      const rect = tiling.tileXYToNativeRectangle(x, y, level);
+      const buf = new Float32Array(HM * HM);
+      for (let j = 0; j < HM; j++) {
+        const lat = rect.north + (rect.south - rect.north) * (j / (HM - 1));
+        for (let i = 0; i < HM; i++) {
+          const lon = rect.west + (rect.east - rect.west) * (i / (HM - 1));
+          buf[j * HM + i] = sampleElev(lon, lat);
+        }
+      }
+      return Promise.resolve(new Cesium.HeightmapTerrainData({ buffer: buf, width: HM, height: HM }));
+    }
+  };
+}
+function setTerrain(on) {
+  try {
+    // 先让勾选框重绘, 再做重活(切换地形会触发全地球网格重建, 顿 0.5-1 秒属正常)
+    setTimeout(() => {
+      try {
+        viewer.terrainProvider = (on && terrainProv) ? terrainProv : new Cesium.EllipsoidTerrainProvider();
+        viewer.scene.globe.terrainExaggeration = exagg;
+        // 夸张地形下, 平铺高度的分析图层(气候/季风/流域/湖泊)会被山体穿插 → 自动隐藏
+        for (const id of ['climate', 'monsoon', 'basins', 'lakes']) {
+          const lc = LAYERS.find(l => l.id === id), ds = layerDS[id];
+          if (lc && ds) {
+            ds.show = on ? false : lc.on;
+            const lbl = [...document.querySelectorAll('#layers label')].find(l => l.textContent.trim().startsWith(lc.label));
+            if (lbl) { lbl.classList.toggle('on', ds.show); lbl.querySelector('input').checked = ds.show; }
+          }
+        }
+        applyLineHeights(exagg);
+        applyCityHeights(exagg);
+      } catch (e) { window.__errs.push('terrain: ' + e.message); }
+    }, 30);
+  } catch (e) { window.__errs.push('terrain0: ' + e.message); }
+}
+function applyLineHeights(ex) {
+  const terrainOn = viewer.terrainProvider === terrainProv;
+  for (const [id, cache] of linePosCache) {
+    let e = null;
+    for (const k of Object.keys(layerDS)) {
+      const ds = layerDS[k];
+      if (ds && ds.entities) { e = ds.entities.getById(id); if (e) break; }
+    }
+    if (!e || !e.polyline) continue;
+    // 纯海洋/平原上的线(最高点 <300m)直接平铺, 免逐点采样
+    if (cache.maxE < 300) {
+      e.polyline.positions = cache.pts.map(([lo, la]) => Cesium.Cartesian3.fromDegrees(lo, la, 250));
+      continue;
+    }
+    e.polyline.positions = cache.pts.map(([lo, la]) =>
+      Cesium.Cartesian3.fromDegrees(lo, la, terrainOn ? Math.max(0, sampleElev(lo, la)) * ex + 250 : 250));
+  }
+}
+// ---- 云层(噪声+气候带) ----
+function makeCloudBlobUrl(pj) {
+  return new Promise((resolve) => {
+    const W2 = 1024, H2 = 512;
+    const cv = document.createElement('canvas'); cv.width = W2; cv.height = H2;
+    const cx = cv.getContext('2d');
+    const img = cx.createImageData(W2, H2);
+    const rand = (function (s) { let a = s >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; })((pj.params.seed || 1) ^ 0x51AB);
+    const perm = new Uint8Array(512);
+    const baseP = [];
+    for (let i = 0; i < 256; i++) baseP.push(i);
+    for (let i = 255; i > 0; i--) { const j = (rand() * (i + 1)) | 0; const t = baseP[i]; baseP[i] = baseP[j]; baseP[j] = t; }
+    for (let i = 0; i < 512; i++) perm[i] = baseP[i & 255];
+    const h3 = (x, y, z) => perm[(perm[(perm[x & 255] + y) & 255] + z) & 255] / 255;
+    const fade = t => t * t * (3 - 2 * t);
+    function noise3(x, y, z) {
+      const ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+      const u = fade(x - ix), v = fade(y - iy), w = fade(z - iz);
+      const n = (dx, dy, dz) => h3(ix + dx, iy + dy, iz + dz);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      return lerp(
+        lerp(lerp(n(0,0,0), n(1,0,0), u), lerp(n(0,1,0), n(1,1,0), u), v),
+        lerp(lerp(n(0,0,1), n(1,0,1), u), lerp(n(0,1,1), n(1,1,1), u), v), w);
+    }
+    function fbm(x, y, z) { let a = 0.5, f = 1, s = 0, n = 0; for (let o = 0; o < 4; o++) { s += a * noise3(x * f + o * 13.1, y * f + o * 7.7, z * f + o * 3.3); n += a; a *= 0.55; f *= 2.1; } return s / n; }
+    const phiH = pj.params.phiH || 30;
+    for (let py = 0; py < H2; py++) {
+      const lat = 90 - (py + 0.5) * 180 / H2;
+      const gs = (c, s2, amp) => amp * Math.exp(-((lat - c) ** 2) / (2 * s2));
+      const band = Math.min(1, gs(0, 110, 1.0) + gs(phiH + 22, 130, 0.9) + gs(-(phiH + 22), 130, 0.9) + 0.15 - gs(phiH, 30, 0.55) - gs(-phiH, 30, 0.55));
+      for (let px = 0; px < W2; px++) {
+        const lon = -180 + (px + 0.5) * 360 / W2;
+        const la = lat * D2R_PAGE || (lat * Math.PI / 180), lo = lon * Math.PI / 180;
+        const vx = Math.cos(la) * Math.cos(lo) * 4.2, vy = Math.cos(la) * Math.sin(lo) * 4.2, vz = Math.sin(la) * 4.2;
+        const v = fbm(vx, vy, vz);
+        const al = Math.max(0, Math.min(1, (v - 0.46) * 2.4)) * Math.min(1, Math.max(0, band));
+        const o = (py * W2 + px) * 4;
+        img.data[o] = 250; img.data[o + 1] = 252; img.data[o + 2] = 255; img.data[o + 3] = al * 205;
+      }
+    }
+    cx.putImageData(img, 0, 0);
+    cv.toBlob(b => resolve(URL.createObjectURL(b)), 'image/png');
+  });
+}
+const D2R_PAGE = Math.PI / 180;
+let cloudBlobUrl = null;
+async function setClouds(on, pj, seq) {
+  try {
+    if (cloudLayer) { viewer.imageryLayers.remove(cloudLayer); cloudLayer = null; }
+    if (cloudBlobUrl) { URL.revokeObjectURL(cloudBlobUrl); cloudBlobUrl = null; }
+    if (!on || !pj) return;
+    cloudBlobUrl = await makeCloudBlobUrl(pj);
+    if (seq !== pendingSeq) return;
+    const prov = await Cesium.SingleTileImageryProvider.fromUrl(cloudBlobUrl);
+    if (seq !== pendingSeq) return;
+    cloudLayer = viewer.imageryLayers.addImageryProvider(prov);
+  } catch (e) { window.__errs.push('clouds: ' + e.message); }
+}
+// ---- 昼夜 / 夜灯 / 卫星 ----
+const sunTmp = new Cesium.Cartesian3();
+function setDayNight(on) {
+  viewer.scene.globe.enableLighting = on;
+  viewer.clock.shouldAnimate = on;
+  if (on) viewer.clock.multiplier = 3600; // 1 秒 ≈ 1 小时, 一天约 24 秒
+}
+let visTickT0 = performance.now();
+function onVisTick() {
+  try {
+    // 卫星公转
+    if (moonPrims && moonCfg) {
+      const t = (performance.now() - visTickT0) / 1000;
+      const ci = Math.cos(14 * Math.PI / 180), si = Math.sin(14 * Math.PI / 180);
+      for (let i = 0; i < moonCfg.n; i++) {
+        const per = 75 + i * 45;
+        const ang = (t / per) * 2 * Math.PI + i * 2.5;
+        const R = 2.5e7 + i * 7e6;
+        moonPrims.get(i).position = new Cesium.Cartesian3(R * Math.cos(ang), R * Math.sin(ang) * ci, R * Math.sin(ang) * si);
+      }
+    }
+    // 城邦夜灯: 夜半球点亮
+    if (cityPoints && cityMeta.length && viewer.scene.globe.enableLighting) {
+      const SPP = Cesium.Simon1994PlanetaryPositions;
+      const sunFn = SPP && (SPP.ComputeSunPosition || SPP.getSunPosition);
+      if (sunFn) {
+        const sp = sunFn.call(SPP, viewer.clock.currentTime, sunTmp);
+        if (sp) {
+          Cesium.Cartesian3.normalize(sp, sunTmp);
+          for (const m of cityMeta) {
+            const d = Cesium.Cartesian3.dot(m.norm, sunTmp);
+            if (d < -0.03) { m.pp.color = color('#fff2b8', 1); m.pp.pixelSize = 13; m.pp.outlineColor = color('#8a6a00', 1); }
+            else { m.pp.color = color('#ffd479', 0.9); m.pp.pixelSize = 9; m.pp.outlineColor = color('#5a3c00', 1); }
+          }
+        }
+      }
+    }
+  } catch (e) { /* 视觉包逐帧异常不拖垮渲染循环 */ }
+}
+// ---- 卫星贴图与挂载 ----
+function makeMoonTexture() {
+  const cv = document.createElement('canvas'); cv.width = 96; cv.height = 96;
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(38, 34, 6, 48, 48, 46);
+  g.addColorStop(0, '#e8edf4'); g.addColorStop(0.55, '#b9c4d4'); g.addColorStop(0.85, '#6a7688'); g.addColorStop(1, '#3a4252');
+  c.fillStyle = g; c.beginPath(); c.arc(48, 48, 45, 0, Math.PI * 2); c.fill();
+  // 环形山
+  for (let i = 0; i < 9; i++) {
+    c.fillStyle = 'rgba(90,100,118,0.5)';
+    c.beginPath(); c.arc(20 + Math.random() * 56, 20 + Math.random() * 56, 2 + Math.random() * 5, 0, Math.PI * 2); c.fill();
+  }
+  return cv;
+}
+function setMoons(on, pj) {
+  if (moonPrims) { viewer.scene.primitives.remove(moonPrims); moonPrims = null; moonCfg = null; }
+  if (!on || !pj) return;
+  const n = pj.moons == null ? 1 : pj.moons;
+  if (n <= 0) return;
+  moonPrims = new Cesium.BillboardCollection();
+  const tex = makeMoonTexture();
+  for (let i = 0; i < n; i++) {
+    moonPrims.add({
+      image: tex, scale: 0.55,
+      scaleByDistance: new Cesium.NearFarScalar(8e6, 1.1, 7e7, 0.22),
+      sizeInMeters: false
+    });
+  }
+  moonCfg = { n };
+  viewer.scene.primitives.add(moonPrims);
+}
+// ---- 星籍码 ----
+function encodeStar(p) {
+  const j = JSON.stringify(p);
+  const b = btoa(unescape(encodeURIComponent(j)));
+  return 'STAR1-' + b.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function decodeStar(code) {
+  let b = code.trim().replace(/^STAR1-/, '').replace(/-/g, '+').replace(/_/g, '/');
+  while (b.length % 4) b += '=';
+  return JSON.parse(decodeURIComponent(escape(atob(b))));
+}
+
+// ============ UI ============
+function buildUI() {
+  const sel = document.getElementById('planetSel');
+  for (const p of PLANETS) {
+    const o = document.createElement('option');
+    o.value = p.id; o.textContent = `${p.name} (${p.id})`;
+    sel.appendChild(o);
+  }
+  sel.onchange = () => {
+    const p = resolvePlanetCfg(sel.value);
+    if (p) { currentPlanet = p; loadPlanet(p); }
+  };
+  g('openWs').onclick = openWorkshop;
+  g('wsClose').onclick = closeWorkshop;
+  g('wsParse').onclick = wsParse;
+  g('wsGenerate').onclick = wsGenerate;
+  // 视觉开关
+  g('visClouds').onchange = e => setClouds(e.target.checked, currentPj, pendingSeq);
+  g('visDayNight').onchange = e => setDayNight(e.target.checked);
+  g('visTerrain').onchange = e => setTerrain(e.target.checked);
+  g('visMoons').onchange = e => setMoons(e.target.checked, currentPj);
+  // 起伏滑杆: 用 change(松手生效)+防抖, 绝不用 oninput —— 拖动过程中每像素重建全部折线几何会内存爆炸
+  let exagTimer = null;
+  g('visExag').oninput = e => { g('exagVal').textContent = e.target.value; };
+  g('visExag').onchange = e => {
+    clearTimeout(exagTimer);
+    exagTimer = setTimeout(() => {
+      exagg = +e.target.value;
+      setTerrain(g('visTerrain').checked);
+    }, 250);
+  };
+  // 预设卡
+  const PRESETS = [
+    ['💧 水世界', '一片几乎被海洋覆盖的水世界,只有零星群岛露出海面,气候温和,四季如春,名叫碧波'],
+    ['🏜 沙漠世界', '一颗自转很慢的沙漠星球,一整块超级大陆被大裂谷劈开,四季几乎不存在,炎热干旱,昼夜60小时,名叫赤漠'],
+    ['❄️ 冰封世界', '冰封的雪球行星,极地冰盖延伸到中纬度,海洋占了七成,寒冷但海洋不冻,名叫霜白'],
+    ['🌿 伊甸园', '一颗温和宜人的类地行星,四季分明,季风澎湃,大陆东西两岸都有肥沃平原,名叫青禾'],
+    ['🌋 熔火世界', '火山密布的焦土行星,大地被热点烧穿,天空常年灰霾,没有卫星,名叫燃灰'],
+    ['🛰 星际时代', '星际时代的破碎群岛世界,海洋占了七成,拓殖理事会统治各环礁城邦,名叫新港']
+  ];
+  for (const [tag, d] of PRESETS) {
+    const b = document.createElement('button');
+    b.textContent = tag;
+    b.onclick = () => { g('wsDesc').value = d; wsParse(); };
+    g('wsPresets').appendChild(b);
+  }
+  // 星籍码
+  g('wsCodeBtn').onclick = () => {
+    const p = wsCollect();
+    if (!p) { g('wsStatus').textContent = '先解析描述再生成星籍码'; return; }
+    g('wsCode').value = encodeStar(p);
+    g('wsStatus').textContent = '星籍码已生成 —— 复制发给别人, 在工坊里粘贴导入即可 1:1 重建这颗星';
+  };
+  g('wsImport').onclick = () => {
+    try {
+      const p = decodeStar(g('wsCode').value);
+      wsParsed = p;
+      g('wsDesc').value = p.description || '';
+      g('wsSummary').textContent = `已导入星籍码: ${p.name}\n昼夜 ${p.dayHours}h · 倾角 ${p.tiltDeg}° · 陆地 ${(p.landTarget * 100).toFixed(0)}% · 板块 ${p.plates}`;
+      g('wsSummary').style.display = 'block';
+      g('wsForm').style.display = 'block';
+      g('wsName').value = p.name;
+      g('wsDay').value = p.dayHours; g('wsTilt').value = p.tiltDeg;
+      g('wsLand').value = Math.round(p.landTarget * 100);
+      g('wsPlates').value = p.plates; g('wsCont').value = p.continentalPlates;
+      g('wsHot').value = p.hotspots; g('wsBias').value = p.continentBias;
+      g('wsRift').checked = p.forceRift; g('wsColl').checked = p.forceCollision;
+      g('wsStatus').textContent = '导入成功, 点「② 生成行星」即可重建';
+    } catch (e) { g('wsStatus').textContent = '星籍码无效'; }
+  };
+  g('wsDice').onclick = () => {
+    if (wsParsed) { wsParsed.seed = (Math.random() * 4294967295) >>> 0; g('wsStatus').textContent = '🎲 已换地形骨架(随机种子), 点生成即可'; }
+    else g('wsStatus').textContent = '先解析描述';
+  };
+
+  const modesEl = document.getElementById('modes');
+  for (const m of MODES) {
+    const lb = document.createElement('label');
+    lb.innerHTML = `<input type="radio" name="mode" value="${m.id}" ${m.id === 'terrain' ? 'checked' : ''}>${m.label}`;
+    lb.querySelector('input').onchange = () => {
+      currentMode = m.id;
+      for (const el of modesEl.querySelectorAll('label')) el.classList.remove('on');
+      lb.classList.add('on');
+      if (currentPlanet) setTexture(currentPlanet.folder, currentMode);
+    };
+    modesEl.appendChild(lb);
+  }
+  modesEl.querySelector('label').classList.add('on');
+
+  const layersEl = document.getElementById('layers');
+  for (const lc of LAYERS) {
+    const lb = document.createElement('label');
+    lb.className = lc.on ? 'on' : '';
+    lb.innerHTML = `<input type="checkbox" ${lc.on ? 'checked' : ''}>${lc.label}`;
+    lb.querySelector('input').onchange = (ev) => {
+      lc.on = ev.target.checked;
+      lb.classList.toggle('on', lc.on);
+      if (layerDS[lc.id]) layerDS[lc.id].show = lc.on;
+    };
+    layersEl.appendChild(lb);
+  }
+}
+
+function updateLegend(mode) {
+  const el = document.getElementById('legend');
+  if (mode === 'climate') {
+    let h = '<div class="t">气候分区图例</div>';
+    for (const [k, v] of Object.entries(CLIM_COLORS)) h += `<div><span class="sw" style="background:${v}"></span>${k}</div>`;
+    h += '<div style="color:#8aa4bd;margin-top:2px">橙色调 = 季风区叠加</div>';
+    el.innerHTML = h; el.style.display = 'block';
+  } else if (mode === 'tectonic') {
+    el.innerHTML = '<div class="t">构造图例</div><div><span class="sw" style="background:#ff5040"></span>汇聚边界(造山/海沟)</div><div><span class="sw" style="background:#40dcff"></span>离散边界(洋脊/裂谷)</div><div><span class="sw" style="background:#ffdc40"></span>转换断层</div>';
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+function buildLegendClimate() { /* 图例随贴图模式更新 */ }
+
+function showCity(c) {
+  const info = document.getElementById('info');
+  const body = document.getElementById('infoBody');
+  body.innerHTML = `
+    <h3>${c.name} <span style="font-size:12px;color:#8aa4bd">${c.type}</span></h3>
+    <div class="meta">人口 ${c.popWan} 万 · 政体:${c.govt} · 气候:${c.climate}${c.monsoon > 0.5 ? ' · 季风' : ''}${c.nearCurrent ? ' · ' + c.nearCurrent : ''}${c.coast ? ' · 沿海' : ''} · 海拔 ${c.elevM}m</div>
+    <div>${c.background || ''}</div>
+    <div style="margin-top:6px;color:#8aa4bd">特产: ${(c.goods || []).join('、')}</div>`;
+  info.style.display = 'block';
+}
+
+// ============ 启动 ============
+(async function main() {
+  try {
+    await initCesium();
+    buildUI();
+    await refreshPlanetList();
+    currentPlanet = PLANETS[0];
+    document.getElementById('planetSel').value = currentPlanet.id;
+    await loadPlanet(currentPlanet);
+  } catch (e) {
+    window.__errs.push('main: ' + (e.message || e));
+    document.getElementById('loading').textContent = '加载失败: ' + (e.message || e);
+  }
+})();
+</script>
+</body>
+</html>
