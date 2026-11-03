@@ -81,6 +81,7 @@ function copyDir(src, dest) {
   const stage = path.join(os.tmpdir(), 'planet-pages-' + Date.now());
   fs.mkdirSync(stage, { recursive: true });
   fs.copyFileSync(path.join(ROOT, '预览', 'index.html'), path.join(stage, 'index.html'));
+  fs.copyFileSync(path.join(ROOT, '预览', 'main.js'), path.join(stage, 'main.js'));
   copyDir(path.join(ROOT, '预览', 'vendor'), path.join(stage, 'vendor'));
   copyDir(path.join(ROOT, '数据'), path.join(stage, '数据'));
   fs.writeFileSync(path.join(stage, '.nojekyll'), '');
