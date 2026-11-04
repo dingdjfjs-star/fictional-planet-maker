@@ -10,10 +10,14 @@
 ## 部署 / 更新线上版本
 
 ```bash
-node 工具\deploy.js    # 建仓(首次)/推 main/重建 gh-pages 静态站;Pages 源固定为 gh-pages 分支
+node 工具\deploy.js    # 建仓(首次)/推 main/重建 gh-pages 静态站;Pages 源固定为 gh-pages 分支;推送自带 4 次重试
 ```
 
 静态版说明:页面路径全部相对化(数据/预览相对寻址),Cesium 库带 jsdelivr CDN 兜底;工坊的"在线生成"依赖 Node 后端,静态托管下自动降级为提示。
+
+## 轻量单文件版(低配/手机/快速分享)
+
+`轻量版.html`(项目根目录,约 2MB)—— 不依赖 Cesium,纯 Canvas 2D:五颗行星全部内联,**双击即开**,平面地图(拖拽/缩放/图层开关/点城邦看文明卡)+ 自转星球(正交投影自转+拖拽)+ 地形/气候贴图切换。重新生成行星后跑 `node 工具\build-lite.js` 刷新;线上部署时自动随 gh-pages 分发。Cesium 页左栏也有入口按钮。
 
 ## 三颗行星
 
