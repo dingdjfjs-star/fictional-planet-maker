@@ -15,6 +15,21 @@ const DESC = '虚构行星工坊 —— 中文描述造星 + 板块/大气/洋�
 function git(args, opts) {
   return execFileSync('git', args, Object.assign({ encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }, opts));
 }
+
+function sleepMs(ms) {
+  spawn(process.execPath, ['-e', 'setTimeout(() => 0, ' + ms + ')']);
+}
+function pushRetry(args, cwd) {
+  for (let a = 1; a <= 4; a++) {
+    try {
+      execFileSync('git', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
+      return;
+    } catch (e) {
+      console.log('   推送失败(第' + a + '次), 15 秒后重试…');
+      if (a < 4) sleepMs(15000); else throw new Error('推送多次失败');
+    }
+  }
+}
 function getCredential() {
   return new Promise((res, rej) => {
     const p = spawn('git', ['credential', 'fill'], { stdio: ['pipe', 'pipe', 'ignore'] });
@@ -74,7 +89,7 @@ function copyDir(src, dest) {
   try { git(['remote', 'add', 'origin', `https://github.com/${login}/${REPO_NAME}.git`], { cwd: ROOT }); }
   catch (e) { git(['remote', 'set-url', 'origin', `https://github.com/${login}/${REPO_NAME}.git`], { cwd: ROOT }); }
   console.log('④ 推送 main(可能需要 1-3 分钟)…');
-  execFileSync('git', ['push', '-u', 'origin', 'main'], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+  pushRetry(["push", "-u", "origin", "main"], ROOT);
   console.log('   main 已推送');
 
   console.log('⑤ 构建 gh-pages(静态站: 页面+vendor+数据)…');
@@ -92,7 +107,7 @@ function copyDir(src, dest) {
   git(['config', 'user.email', login + '@users.noreply.github.com'], { cwd: stage });
   git(['add', '-A'], { cwd: stage });
   git(['commit', '-m', 'pages: 静态预览站', '--allow-empty'], { cwd: stage });
-  execFileSync('git', ['push', '--force', `https://github.com/${login}/${REPO_NAME}.git`, 'gh-pages'], { cwd: stage, stdio: ['ignore', 'ignore', 'pipe'] });
+  pushRetry(["push", "--force", `https://github.com/${login}/${REPO_NAME}.git`, "gh-pages"], stage);
   console.log('   gh-pages 已推送');
   fs.rmSync(stage, { recursive: true, force: true });
 
