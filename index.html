@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>虚构行星工坊 · Cesium 三维预览</title>
+<style>
+  @import url('./vendor/cesium/Widgets/widgets.css');
+  html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+  #panel {
+    position: absolute; top: 12px; left: 12px; z-index: 10; width: 248px;
+    background: rgba(12, 18, 28, 0.88); color: #dce8f2; border: 1px solid #2a3a4e;
+    border-radius: 10px; padding: 12px 14px; font: 13px/1.55 "Microsoft YaHei", sans-serif;
+    user-select: none; backdrop-filter: blur(4px);
+  }
+  #panel h1 { font-size: 16px; margin: 0 0 2px; color: #8fd0ff; letter-spacing: 1px; }
+  #panel .sub { font-size: 11px; color: #7e94ab; margin-bottom: 8px; }
+  #panel select, #panel button {
+    width: 100%; box-sizing: border-box; background: #16222f; color: #dce8f2;
+    border: 1px solid #33506b; border-radius: 6px; padding: 5px 8px; font: inherit; cursor: pointer;
+  }
+  #panel .sec { margin-top: 10px; border-top: 1px dashed #2a3a4e; padding-top: 8px; }
+  #panel .sec .t { font-size: 12px; color: #8fd0ff; margin-bottom: 5px; }
+  .modes label, .layers label {
+    display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0;
+    background: #16222f; border: 1px solid #33506b; border-radius: 6px;
+    padding: 2px 8px; cursor: pointer; font-size: 12px;
+  }
+  .layers label { display: flex; width: calc(50% - 8px); box-sizing: border-box; margin: 2px 0; }
+  .layers { display: flex; flex-wrap: wrap; justify-content: space-between; }
+  .modes input, .layers input { accent-color: #3aa0ff; margin: 0; }
+  .modes label.on, .layers label.on { border-color: #3aa0ff; color: #bfe3ff; }
+  #info {
+    position: absolute; left: 12px; bottom: 12px; z-index: 10; width: 330px; max-height: 42vh; overflow: auto;
+    background: rgba(12, 18, 28, 0.9); color: #dce8f2; border: 1px solid #2a3a4e;
+    border-radius: 10px; padding: 10px 14px; font: 12.5px/1.65 "Microsoft YaHei", sans-serif; display: none;
+  }
+  #info h3 { margin: 0 0 4px; color: #ffd479; font-size: 15px; }
+  #info .meta { color: #8aa4bd; margin-bottom: 6px; }
+  #info .close { float: right; cursor: pointer; color: #7e94ab; }
+  #hud {
+    position: absolute; top: 12px; right: 12px; z-index: 10; display: none;
+    background: rgba(0,0,0,0.65); color: #9fe0a8; border-radius: 8px; padding: 8px 12px;
+    font: 12px/1.6 Consolas, monospace; white-space: pre; border: 1px solid #2a4a3a;
+  }
+  #loading {
+    position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center;
+    background: rgba(2, 6, 12, 0.82); color: #8fd0ff; font: 16px "Microsoft YaHei", sans-serif;
+    letter-spacing: 2px; transition: opacity 0.4s;
+  }
+  #legend {
+    position: absolute; right: 12px; bottom: 12px; z-index: 10; width: 210px;
+    background: rgba(12,18,28,0.88); color: #dce8f2; border: 1px solid #2a3a4e; border-radius: 10px;
+    padding: 8px 12px; font: 11.5px/1.7 "Microsoft YaHei", sans-serif;
+  }
+  #legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  #legend .t { color: #8fd0ff; font-size: 12px; margin-bottom: 2px; }
+  /* ---- 行星工坊 ---- */
+  #workshop { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(2, 6, 12, 0.72); }
+  #wsBox { width: 470px; max-height: 92vh; overflow: auto; background: #0c121c; border: 1px solid #2a3a4e; border-radius: 12px; padding: 14px 18px; color: #dce8f2; font: 13px/1.6 "Microsoft YaHei", sans-serif; }
+  #wsBox h2 { margin: 0 0 4px; font-size: 16px; color: #8fd0ff; }
+  #wsBox .hint { font-size: 11.5px; color: #7e94ab; margin-bottom: 8px; }
+  #wsDesc { width: 100%; box-sizing: border-box; height: 64px; background: #16222f; color: #dce8f2; border: 1px solid #33506b; border-radius: 8px; padding: 8px; font: inherit; resize: vertical; }
+  #wsSummary { background: #101a26; border: 1px dashed #33506b; border-radius: 8px; padding: 8px 10px; font-size: 12px; white-space: pre-wrap; display: none; margin: 8px 0; color: #bfe3ff; }
+  #wsForm { display: none; margin-top: 8px; }
+  #wsForm .grid { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+  #wsForm label { display: flex; flex-direction: column; font-size: 11.5px; color: #8aa4bd; width: calc(33% - 8px); }
+  #wsForm label.wide { width: calc(66% - 8px); }
+  #wsForm input, #wsForm select { background: #16222f; color: #dce8f2; border: 1px solid #33506b; border-radius: 6px; padding: 4px 6px; font: inherit; }
+  #wsForm .chk { flex-direction: row; align-items: center; gap: 5px; width: calc(50% - 8px); }
+  #wsBox .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  #wsBox .btnrow button { flex: 1; background: #1b3250; color: #bfe3ff; border: 1px solid #3a6ea8; border-radius: 8px; padding: 7px 0; font: inherit; cursor: pointer; }
+  #wsBox .btnrow button.primary { background: #2563a8; color: #fff; }
+  #wsBox .btnrow button:disabled { opacity: 0.5; cursor: wait; }
+  #wsStatus { margin-top: 8px; color: #ffd479; font-size: 12.5px; min-height: 18px; }
+  #wsCustoms { margin-top: 10px; border-top: 1px dashed #2a3a4e; padding-top: 8px; }
+  #wsCustoms .row { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; }
+  #wsCustoms .row button { background: #3a1b22; color: #ff9a9a; border: 1px solid #6b2a35; border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 11.5px; }
+  #openWs { margin-top: 8px; width: 100%; background: #1b3250; color: #bfe3ff; border: 1px solid #3a6ea8; border-radius: 8px; padding: 6px 0; font: inherit; cursor: pointer; }
+  .visgrid { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .visgrid label { display: flex; align-items: center; gap: 4px; font-size: 12px; width: calc(50% - 8px); }
+  .visgrid label.wide { width: 100%; }
+  .visgrid input[type=range] { width: 100%; accent-color: #3aa0ff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+  .chips button { background: #16222f; color: #bfe3ff; border: 1px solid #33506b; border-radius: 14px; padding: 2px 10px; font-size: 11.5px; cursor: pointer; }
+  #wsCode { width: 100%; box-sizing: border-box; height: 52px; background: #101a26; color: #9fe0a8; border: 1px solid #33506b; border-radius: 8px; padding: 6px; font: 11px/1.4 Consolas, monospace; resize: vertical; }
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div id="panel">
+  <h1>虚构行星工坊</h1>
+  <div class="sub">板块 → 地形 → 大气 → 洋流 → 气候 → 城邦</div>
+  <select id="planetSel"></select>
+  <button id="openWs">🛠 行星工坊 · 用一句话造一颗星</button>
+  <button onclick="location.href='轻量版.html'" style="margin-top:6px;width:100%;background:#123a2e;color:#a8e6c8;border:1px solid #2a6b4a;border-radius:8px;padding:6px 0;font:inherit;cursor:pointer">📱 轻量版 · 双击即开 · 低配流畅</button>
+  <div id="tagline" class="sub" style="margin-top:6px"></div>
+  <div class="sec">
+    <div class="t">贴图模式</div>
+    <div class="modes" id="modes"></div>
+  </div>
+    <div class="sec">
+      <div class="t">图层</div>
+      <div class="layers" id="layers"></div>
+    </div>
+    <div class="sec">
+      <div class="t">视觉</div>
+      <div class="visgrid">
+        <label><input type="checkbox" id="visClouds" checked>云层</label>
+        <label><input type="checkbox" id="visDayNight">昼夜自转</label>
+        <label><input type="checkbox" id="visTerrain">3D 地形(切换时约卡1秒)</label>
+        <label><input type="checkbox" id="visMoons" checked>卫星</label>
+        <label class="wide">地形起伏 ×<span id="exagVal">4</span><input id="visExag" type="range" min="1" max="15" step="1" value="4"></label>
+      </div>
+    </div>
+</div>
+<div id="info"><span class="close" onclick="this.parentNode.style.display='none'">✕</span><div id="infoBody"></div></div>
+
+<div id="workshop">
+  <div id="wsBox">
+    <h2>🛠 行星工坊</h2>
+    <div class="hint">用一句中文描述你想要的行星 → 解析成参数 → 生成并保存。之后可以改参数反复重生成(同一名字=同一片大陆骨架)。</div>
+    <textarea id="wsDesc" placeholder="例: 一颗自转很慢的沙漠星球,一整块超级大陆被大裂谷劈开,四季几乎不存在,昼夜60小时,名叫烬阳"></textarea>
+    <div class="chips" id="wsPresets"></div>
+    <div id="wsSummary"></div>
+    <div id="wsForm">
+      <div class="grid">
+        <label class="wide">名字<input id="wsName" maxlength="6"></label>
+        <label>昼夜(小时)<input id="wsDay" type="number" min="2" max="480"></label>
+        <label>倾角(度)<input id="wsTilt" type="number" min="0" max="60"></label>
+        <label>陆地占比(%)<input id="wsLand" type="number" min="5" max="80"></label>
+        <label>板块数<input id="wsPlates" type="number" min="4" max="18"></label>
+        <label>陆壳板块<input id="wsCont" type="number" min="1" max="10"></label>
+        <label>热点火山<input id="wsHot" type="number" min="0" max="30"></label>
+        <label class="wide">大陆偏置<select id="wsBias">
+          <option value="none">无(随机分布)</option>
+          <option value="equator">赤道超级大陆</option>
+          <option value="poles">高纬大陆</option>
+        </select></label>
+        <label class="chk"><input id="wsRift" type="checkbox">强制中央裂谷</label>
+        <label class="chk"><input id="wsColl" type="checkbox">强制碰撞造山</label>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="wsParse">① 解析描述</button>
+      <button id="wsDice" title="换个随机种子(地形骨架会变)">🎲 换骨架</button>
+      <button id="wsGenerate" class="primary">② 生成行星</button>
+    </div>
+    <div id="wsStatus"></div>
+    <div class="btnrow">
+      <button id="wsCodeBtn">📋 生成星籍码</button>
+      <button id="wsImport">📥 导入星籍码</button>
+    </div>
+    <textarea id="wsCode" placeholder="星籍码会出现在这里; 也可以粘贴别人的星籍码后点导入"></textarea>
+    <div id="wsCustoms"></div>
+    <div class="btnrow"><button id="wsClose">关闭工坊</button></div>
+  </div>
+</div>
+
+<div id="hud"></div>
+<div id="legend"></div>
+<div id="loading">正在展开星球 …</div>
+
+<script>
+  // 大文件双源竞速: 本地 vendor 先试, 6 秒未就绪自动切 jsdelivr CDN(国内可达性兜底)
+  window.CESIUM_BASE_URL = './vendor/cesium/';
+  window.__cesiumBase = new Promise(function (resolve) {
+    var done = false;
+    function use(url) { if (done) return; done = true; window.CESIUM_BASE_URL = url; resolve(url); }
+    var s = document.createElement('script');
+    s.src = './vendor/cesium/Cesium.js';
+    s.onload = function () { use('./vendor/cesium/'); };
+    s.onerror = function () { use('https://cdn.jsdelivr.net/npm/cesium@1.144.0/Build/Cesium/'); };
+    document.head.appendChild(s);
+    setTimeout(function () {
+      if (!done && typeof Cesium === 'undefined') {
+        var cdn = 'https://cdn.jsdelivr.net/npm/cesium@1.144.0/Build/Cesium/';
+        var c = document.createElement('script');
+        c.src = cdn + 'Cesium.js';
+        c.onload = function () { use(cdn); };
+        c.onerror = function () { use('./vendor/cesium/'); };
+        document.head.appendChild(c);
+      }
+    }, 6000);
+  });
+  window.__cesiumBase.then(function (base) {
+    var link = document.createElement('link');
+    link.rel = 'stylesheet'; link.href = base + 'Widgets/widgets.css';
+    document.head.appendChild(link);
+    var main = document.createElement('script');
+    main.src = 'main.js';
+    document.head.appendChild(main);
+  });
+</script>
+</body>
+</html>
