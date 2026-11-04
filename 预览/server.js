@@ -163,6 +163,7 @@ const server = http.createServer(async (req, res) => {
     let base, rel;
     if (url.startsWith('/vendor/')) { base = VENDOR; rel = url.slice('/vendor/'.length); }
     else if (url.startsWith('/data/') || url.startsWith('/数据/')) { base = DATA; rel = url.slice(url.indexOf('/', 1) + 1); }
+    else if (url === '/轻量版.html') { base = path.join(ROOT, '..'); rel = '轻量版.html'; }
     else { base = ROOT; rel = url === '/' ? 'index.html' : url.slice(1); }
     const file = path.normalize(path.join(base, rel));
     if (!file.startsWith(path.normalize(base))) return send(res, 403, 'forbidden');

@@ -82,6 +82,7 @@ function copyDir(src, dest) {
   fs.mkdirSync(stage, { recursive: true });
   fs.copyFileSync(path.join(ROOT, '预览', 'index.html'), path.join(stage, 'index.html'));
   fs.copyFileSync(path.join(ROOT, '预览', 'main.js'), path.join(stage, 'main.js'));
+  if (fs.existsSync(path.join(ROOT, '轻量版.html'))) fs.copyFileSync(path.join(ROOT, '轻量版.html'), path.join(stage, '轻量版.html'));
   copyDir(path.join(ROOT, '预览', 'vendor'), path.join(stage, 'vendor'));
   copyDir(path.join(ROOT, '数据'), path.join(stage, '数据'));
   fs.writeFileSync(path.join(stage, '.nojekyll'), '');
